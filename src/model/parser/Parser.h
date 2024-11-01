@@ -24,7 +24,7 @@ private:
     std::unique_ptr<ASTNode> continueStatement();
 	std::unique_ptr<ASTNode> functionCall(const Token& id);
 	std::unique_ptr<ASTNode> returnStatement();
-	std::unique_ptr<ASTNode> block(bool isGlobalScope = true);
+	std::unique_ptr<ASTNode> block();
 	std::unique_ptr<ASTNode> expressionStatement();
 	std::unique_ptr<ASTNode> expression();
 	std::unique_ptr<ASTNode> assignment();

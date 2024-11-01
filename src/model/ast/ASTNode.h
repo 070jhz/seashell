@@ -7,8 +7,6 @@
 #include <any>
 
 #include "../environment/Value.h"
-#include "../environment/Environment.h"
-#include "../ast/ExecutionResult.h"
 
 class ASTVisitor;
 
@@ -248,8 +246,7 @@ public:
 		: variableName(varName), expression(std::move(expr)), declaredType(Type::VOID) {}
 
     Value accept(ASTVisitor& visitor) override;
-    Value evaluate(Environment& env) override;
-    bool isTypeCompatible(Type sourceType, Type targetType);
+    static bool isTypeCompatible(Type sourceType, Type targetType);
 
     std::string toString() override {
 		return variableName + " = " + expression->toString();
@@ -274,10 +271,13 @@ public:
 
 class BlockNode : public ASTNode {
 private:
-	std::vector<std::unique_ptr<ASTNode>> statements;
+    std::vector<std::unique_ptr<ASTNode>> statements;
+    bool isScope; // true for real blocks, false for grouping
 public:
-	BlockNode(std::vector<std::unique_ptr<ASTNode>> stmts) 
-		: statements(std::move(stmts)) {}
+    BlockNode(std::vector<std::unique_ptr<ASTNode>> stmts, bool createScope = false) 
+        : statements(std::move(stmts)), isScope(createScope) {}
+
+    bool shouldCreateScope() const { return isScope; }
 
 	std::vector<std::unique_ptr<ASTNode>>& getStatements() {
 		return statements;
@@ -390,37 +390,30 @@ public:
 
 class FunctionNode : public ASTNode {
 private:
-	std::string name;
-	std::vector<std::pair<std::string, Type>> parameters;
-	Type returnType;
-	std::unique_ptr<ASTNode> body;
+    std::string name;
+    std::vector<std::pair<std::string, Type>> parameters;
+    Type returnType;
+    std::unique_ptr<ASTNode> body;
 public:
-	FunctionNode(const std::string& name,
-		std::vector<std::pair<std::string, Type>> parameters,
-		Type returnType,
-		std::unique_ptr<ASTNode> body)
-		: name(name), parameters(parameters), returnType(returnType), body(std::move(body)) {}
+    FunctionNode(const std::string& name,
+        std::vector<std::pair<std::string, Type>> parameters,
+        Type returnType,
+        std::unique_ptr<ASTNode> body)
+        : name(name), parameters(std::move(parameters)), returnType(returnType), body(std::move(body)) {}
 
     Value accept(ASTVisitor& visitor) override;
 
-    Value evaluate(Environment& env) override;
-	std::string toString() override;
+    std::string toString() override;
 
-	std::unique_ptr<ASTNode>& getBody() { return body; }
+    const std::string& getName() const { return name; }
+    Type getReturnType() const { return returnType; }
+    const std::vector<std::pair<std::string, Type>>& getParameters() const { return parameters; }
+	
+    std::unique_ptr<ASTNode>& getBody() { return body; }
 
-	NodeType getNodeType() const override { 
-		return NodeType::Function; 
-	}
-	const std::string& getName() const {
-		return name; 
-	}
-	Type getReturnType() const {
-		return returnType;
-	}
-	const std::vector<std::pair<std::string, Type>>& getParameters() const {
-		return parameters;
-	}
-	ExecutionResult execute(Environment& env, const std::vector<std::unique_ptr<ASTNode>>& args);
+    NodeType getNodeType() const override { 
+        return NodeType::Function; 
+    }
 };
 
 class ReturnNode : public ASTNode {
@@ -430,9 +423,6 @@ public:
 	ReturnNode(std::unique_ptr<ASTNode> expr) : expression(std::move(expr)) {}
 
     Value accept(ASTVisitor& visitor) override;
-
-    Value evaluate(Environment& env) override;
-
 	std::unique_ptr<ASTNode>& getExpression() { return expression; }
 
 	std::string toString() override {
@@ -455,7 +445,6 @@ public:
 
     Value accept(ASTVisitor& visitor) override;
 
-    Value evaluate(Environment& env) override;
 	std::string toString() override;
 
 	std::string getFuncName() {

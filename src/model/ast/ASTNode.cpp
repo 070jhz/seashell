@@ -2,6 +2,7 @@
 #include "ASTVisitor.h"
 #include <stdexcept>
 
+
 Value BreakNode::accept(ASTVisitor& visitor) {
     return visitor.visit(*this);
 }
@@ -159,12 +160,6 @@ Value FunctionNode::accept(ASTVisitor &visitor) {
     return visitor.visit(*this);
 }
 
-Value FunctionNode::evaluate(Environment& env) {
-	env.declareVariable(name, Type::FUNCTION, Value(this));
-	return Value();
-}
-
-
 std::string FunctionNode::toString() {
 	std::stringstream ss;
 	ss << "function " << name << "(";
@@ -177,7 +172,7 @@ std::string FunctionNode::toString() {
 }
 
 
-ExecutionResult FunctionNode::execute(Environment& env, const std::vector<std::unique_ptr<ASTNode>>& args) {
+/* ExecutionResult FunctionNode::execute(Environment& env, const std::vector<std::unique_ptr<ASTNode>>& args) {
 	if (args.size() != parameters.size()) {
 		throw std::runtime_error("wrong number of arguments for function " + name);
 	}
@@ -209,16 +204,9 @@ ExecutionResult FunctionNode::execute(Environment& env, const std::vector<std::u
 		return ExecutionResult::error("error executing function : " + std::string(e.what()));
 	}
 }
-
+*/
 Value ReturnNode::accept(ASTVisitor &visitor) {
     return visitor.visit(*this);
-}
-
-Value ReturnNode::evaluate(Environment& env) {
-	if (expression) {
-		return expression->evaluate(env);
-	}
-	return Value();
 }
 
 Value CallNode::accept(ASTVisitor &visitor) {
@@ -235,26 +223,4 @@ std::string CallNode::toString() {
 	}
 	result += ")";
 	return result;
-}
-
-Value CallNode::evaluate(Environment& env) {
-	if (!env.hasVariable(name)) {
-		throw std::runtime_error("undefined function: " + name);
-	}
-
-	Variable& funcVar = env.getVariable(name);
-	if (funcVar.type != Type::FUNCTION) {
-		throw std::runtime_error(name + "is not a function");
-	}
-	/*
-	FunctionNode* func = std::any_cast<FunctionNode*>(funcVar.value.get<void*>());
-
-	ExecutionResult result = func->execute(env, arguments);
-
-	if (!result.successFlag) {
-		throw std::runtime_error("error executing function: " + result.errorMessage);
-	}
-	
-	return result.result;*/
-	return Value(0);
 }

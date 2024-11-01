@@ -61,7 +61,7 @@ Value Interpreter::visit(UnaryOpNode& node) {
 
         case Operator::PreIncrement:
         case Operator::PostIncrement:
-            if (operand->getNodeType() != NodeType::Variable) {
+            if (operand->getNodeType() != ASTNode::ASTNode::NodeType::Variable) {
                 throw std::runtime_error("increment requires a variable reference");
             }
             if (val.getType() == Type::INT) {
@@ -79,7 +79,7 @@ Value Interpreter::visit(UnaryOpNode& node) {
             throw std::runtime_error("invalid type for increment operator");
         case Operator::PreDecrement:
         case Operator::PostDecrement:
-            if (operand->getNodeType() != NodeType::Variable) {
+            if (operand->getNodeType() != ASTNode::ASTNode::NodeType::Variable) {
                 throw std::runtime_error("decrement requires a variable reference");
             }
             if (val.getType() == Type::INT) {
@@ -143,33 +143,20 @@ Value Interpreter::visit(BinOpNode& node) {
     Operator op = node.getOperator();
 
     if (left.getType() == Type::INT && right.getType() == Type::INT) {
-        return performOperation(std::any_cast<int>(left), std::any_cast<int>(right), op);
+        return performOperation(left.get<int>(), right.get<int>(), op);
     }
 
     if (left.getType() == Type::DOUBLE && right.getType() == Type::DOUBLE) {
-        return performOperation(std::any_cast<double>(left), std::any_cast<double>(right), op);
+        return performOperation(left.get<double>(), right.get<double>(), op);
     }
 
     double leftDouble = (left.getType() == Type::DOUBLE) ?
-            std::any_cast<double>(left) : static_cast<double>(std::any_cast<int>(left));
+            left.get<double>() : static_cast<double>(left.get<int>());
 
     double rightDouble = (right.getType() == Type::DOUBLE) ?
-            std::any_cast<double>(right) : static_cast<double>(std::any_cast<int>(right));
+            right.get<double>() : static_cast<double>(right.get<int>());
 
     return performOperation(leftDouble, rightDouble, op);
-}
-
-std::string typeToString(Type type) {
-    switch (type) {
-        case Type::INT: return "int";
-        case Type::DOUBLE: return "double";
-        case Type::BOOL: return "bool";
-        case Type::STRING: return "string";
-        case Type::ARRAY: return "array";
-        case Type::VOID: return "void";
-        case Type::FUNCTION: return "function";
-        default: return "unknown";
-    }
 }
 
 Value Interpreter::visit(AssignmentNode& node) {
@@ -201,37 +188,71 @@ Value Interpreter::visit(AssignmentNode& node) {
 }
 
 Value Interpreter::visit(BlockNode& node) {
-    env.pushScope();
+    std::cout << "Entering block" << std::endl;
+    
+    if (node.shouldCreateScope()) {
+        env.pushScope();
+    }
+    
     Value lastVal;
-    auto& stmts = node.getStatements();
     try {
-        for (const auto& stmt : stmts) {
+        for (const auto& stmt : node.getStatements()) {
+            std::cout << "Executing statement of type: " << static_cast<int>(stmt->getNodeType()) << std::endl;
             lastVal = evaluate(*stmt);
-            if (stmt->getNodeType() == NodeType::Return ||
-                stmt->getNodeType() == NodeType::Break ||
-                stmt->getNodeType() == NodeType::Continue) {
-                break;
+            
+            // If this is a return statement, we need to clean up and propagate
+            if (stmt->getNodeType() == ASTNode::NodeType::Return) {
+                if (node.shouldCreateScope()) {
+                    env.popScope();
+                }
+                std::cout << "Return statement found in block" << std::endl;
+                return lastVal;
             }
         }
-    }
-    catch (...) {
-        env.popScope();
+    } catch (const ReturnException& e) {
+        std::cout << "Caught return exception in block: " << e.value.toString() << std::endl;
+        if (node.shouldCreateScope()) {
+            env.popScope();
+        }
         throw;
     }
-    env.popScope();
+    
+    if (node.shouldCreateScope()) {
+        env.popScope();
+    }
+    
+    std::cout << "Block completed normally with value: " << lastVal.toString() << std::endl;
     return lastVal;
 }
 
 Value Interpreter::visit(IfNode& node) {
-    if (evaluate(*node.getCondition()).toBool()) {
-        return evaluate(*node.getThenBranch());
+    std::cout << "Evaluating if condition" << std::endl;
+    Value condValue = evaluate(*node.getCondition());
+    std::cout << "Condition evaluated to: " << condValue.toString() << std::endl;
+    
+    if (condValue.toBool()) {
+        std::cout << "Taking then branch" << std::endl;
+        try {
+            Value result = evaluate(*node.getThenBranch());
+            std::cout << "Then branch returned: " << result.toString() << std::endl;
+            return result;
+        } catch (const ReturnException& e) {
+            std::cout << "Caught return in then branch: " << e.value.toString() << std::endl;
+            throw; // Re-throw the return
+        }
+    } else if (auto& elseBranch = node.getElseBranch()) {
+        std::cout << "Taking else branch" << std::endl;
+        try {
+            Value result = evaluate(*elseBranch);
+            std::cout << "Else branch returned: " << result.toString() << std::endl;
+            return result;
+        } catch (const ReturnException& e) {
+            std::cout << "Caught return in else branch: " << e.value.toString() << std::endl;
+            throw; // Re-throw the return
+        }
     }
-    else if (auto& elseBranch = node.getElseBranch()) {
-        return evaluate(*elseBranch);
-    }
-    else {
-        throw;
-    }
+    
+    return Value(); // Default return for if without else
 }
 
 Value Interpreter::visit(WhileNode& node) {
@@ -255,11 +276,18 @@ Value Interpreter::visit(WhileNode& node) {
 }
 
 Value Interpreter::visit(ForNode& node) {
+    Value lastVal;
+    env.pushScope();
+    
     try {
+        // Initialization
         if (auto& init = node.getInitialization()) {
             evaluate(*init);
         }
+
+        // Loop
         while (true) {
+            // Condition check
             if (auto& condition = node.getCondition()) {
                 Value condVal = evaluate(*condition);
                 if (condVal.getType() != Type::BOOL) {
@@ -270,36 +298,29 @@ Value Interpreter::visit(ForNode& node) {
                 }
             }
 
+            // Body execution
             try {
-                auto& body = node.getBody();
-                Value bodyVal = evaluate(*body);
-
-                // if return statement, propagate the result up the call stack
-                if (body->getNodeType() == NodeType::Return) {
-                    env.popScope();
-                    return bodyVal;
-                }
+                lastVal = evaluate(*node.getBody());
             } catch (const std::runtime_error& e) {
                 if (std::string(e.what()) == "break encountered") {
                     break;
                 }
                 else if (std::string(e.what()) == "continue encountered") {
-                    if (node.getIncrement()) {
-                        evaluate(*node.getIncrement());
-                    }
-                    continue;
+                    // Fall through to increment
                 }
                 else {
                     throw;
                 }
             }
-            if (node.getIncrement()) {
-                evaluate(*node.getIncrement());
+
+            // Increment
+            if (auto& increment = node.getIncrement()) {
+                evaluate(*increment);
             }
         }
 
         env.popScope();
-        return {};
+        return lastVal;
     }
     catch (...) {
         env.popScope();
@@ -308,5 +329,66 @@ Value Interpreter::visit(ForNode& node) {
 }
 
 Value Interpreter::visit(FunctionNode& node) {
-    env.
+    // register the function in the environment
+    env.declareFunction(node.getName(), &node);
+    return {};
+}
+
+Value Interpreter::visit(CallNode& node) {
+    std::cout << "Calling function: " << node.getFuncName() << std::endl;
+    
+    if (!env.hasFunction(node.getFuncName())) {
+        throw std::runtime_error("Undefined function: " + node.getFuncName());
+    }
+
+    FunctionNode* funcDef = env.getFunction(node.getFuncName());
+    const auto& params = funcDef->getParameters();
+    const auto& argsNodes = node.getArguments();
+
+    if (params.size() != argsNodes.size()) {
+        throw std::runtime_error("Wrong number of arguments");
+    }
+
+    // Evaluate arguments before creating new scope
+    std::vector<Value> args;
+    for (size_t i = 0; i < argsNodes.size(); ++i) {
+        Value argValue = evaluate(*argsNodes[i]);
+        args.push_back(argValue);
+    }
+
+    env.pushScope();
+    
+    // Bind parameters in new scope
+    for (size_t i = 0; i < params.size(); ++i) {
+        std::cout << "Binding parameter '" << params[i].first << "' with value: " << args[i].toString() << std::endl;
+        env.declareVariable(params[i].first, params[i].second, args[i]);
+    }
+
+    Value result;
+    try {
+        std::cout << "Executing function body" << std::endl;
+        result = evaluate(*funcDef->getBody());
+        std::cout << "Function completed normally with result: " << result.toString() << std::endl;
+    } catch (const ReturnException& e) {
+        std::cout << "Function returning with value: " << e.value.toString() << std::endl;
+        result = e.value;
+        env.popScope();
+        return result;
+    } catch (const std::exception& e) {
+        std::cout << "Exception in function: " << e.what() << std::endl;
+        env.popScope();
+        throw;
+    }
+
+    env.popScope();
+    return result;
+}
+
+Value Interpreter::visit(ReturnNode& node) {
+    if (node.getExpression()) {
+        Value returnValue = evaluate(*node.getExpression());
+        std::cout << "Return value: " << returnValue.toString() << std::endl;
+        throw ReturnException(returnValue);
+    }
+    throw ReturnException(Value());  // Return void if no expression
 }

@@ -6,7 +6,20 @@ Type Value::getType() const {
     if (std::holds_alternative<double>(data)) return Type::DOUBLE;
     if (std::holds_alternative<bool>(data)) return Type::BOOL;
     if (std::holds_alternative<std::string>(data)) return Type::STRING;
+    if (std::holds_alternative<std::vector<Value>>(data)) return Type::ARRAY;
     throw std::runtime_error("Unknown type");
+}
+
+std::string typeToString(Type type) {
+    switch (type) {
+        case Type::VOID: return "void";
+        case Type::INT: return "int";
+        case Type::DOUBLE: return "double";
+        case Type::BOOL: return "bool";
+        case Type::STRING: return "string";
+        case Type::ARRAY: return "array";
+        default: throw std::runtime_error("Unknown type");
+    }
 }
 
 std::string Value::toString() const {

@@ -4,9 +4,9 @@
 #include "../environment/Value.h"
 #include "ASTNode.h"
 
-class ASTVisitor : public ASTNode {
+class ASTVisitor {
 public:
-    ~ASTVisitor() override = default;
+    virtual ~ASTVisitor() = default;
 
     virtual Value visit(BreakNode& node) = 0;
     virtual Value visit(ContinueNode& node) = 0;

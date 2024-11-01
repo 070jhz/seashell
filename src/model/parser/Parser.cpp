@@ -33,17 +33,9 @@ std::unique_ptr<ASTNode> Parser::program() {
 		statements.push_back(std::move(decl));
 	}
 	std::cout << "exiting program() " << std::endl;
-	return std::make_unique<BlockNode>(std::move(statements));
+	return std::make_unique<BlockNode>(std::move(statements), false); // don't create scope for global block
 }
-std::string typeToStrings(Type type) {
-    switch (type) {
-        case Type::INT : return "int";
-        case Type::DOUBLE : return "double";
-        case Type::BOOL : return "bool";
-        case Type::STRING : return "string";
-        default : return "";
-    }
-}
+
 std::unique_ptr<ASTNode> Parser::declaration() {
 	std::cout << "entering declaration()" << std::endl;
 	try {
@@ -158,12 +150,11 @@ std::unique_ptr<ASTNode> Parser::variableDeclaration(Type type, Token name) {
 
     } while (match(TokenType::Comma) && (name=consume(TokenType::Identifier, "expect additional variable name after ','"), true));
 
-    consume(TokenType::Semicolon, "expect ',' after variable declaration");
+    consume(TokenType::Semicolon, "expect ';' after variable declaration");
     if (declarations.size() == 1) {
         return std::move(declarations[0]);
     } else {
-        // only instance of returning a BlockNode without curly braces in the input,
-        return std::make_unique<BlockNode>(std::move(declarations));
+        return std::make_unique<BlockNode>(std::move(declarations), false); // grouping only
     }
 }
 
@@ -183,7 +174,7 @@ std::unique_ptr<ASTNode> Parser::functionDeclaration(Type returnType, Token name
 
 		consume(TokenType::RightParen, "expect ')' after parameters");
 
-		auto body = block(false); // pass false for function body
+		auto body = block(); // pass false for function body
 		return std::make_unique<FunctionNode>(name.value, parameters, returnType, std::move(body));
 	}
 
@@ -206,7 +197,7 @@ std::unique_ptr<ASTNode> Parser::statement() {
 	}
 
 	// parse block
-	if (check(TokenType::LeftBrace)) return block(false);
+	if (check(TokenType::LeftBrace)) return block();
 
 	return expressionStatement(); // parse as expression statement otherwise
 }
@@ -331,32 +322,26 @@ std::unique_ptr<ASTNode> Parser::functionCall(const Token& id) {
 	return std::make_unique<CallNode>(id.value, std::move(args));
 }
 
-std::unique_ptr<ASTNode> Parser::block(bool isGlobalScope) {
-	std::cout << "entering block" << std::endl;
-	consume(TokenType::LeftBrace, "expect '{' before block."); // start block
+std::unique_ptr<ASTNode> Parser::block() {
+    std::cout << "entering block" << std::endl;
+    consume(TokenType::LeftBrace, "expect '{' before block."); // start block
 
-	std::vector<std::unique_ptr<ASTNode>> statements;
+    std::vector<std::unique_ptr<ASTNode>> statements;
 
-	// loop until '}' or EOF
-	while (!check(TokenType::RightBrace) && !isAtEnd()) {
-		std::unique_ptr<ASTNode> stmt;
-		if (isGlobalScope) {
-			stmt = declaration(); // global scope handles declarations
-		}
-		else {
-			stmt = statement(); // local scope handles regular statements
-		}
+    // loop until '}' or EOF
+    while (!check(TokenType::RightBrace) && !isAtEnd()) {
+        auto stmt = statement();
 
-		if (stmt == nullptr) {
-			std::cout << "no more valid statements, breaking out of block" << std::endl;
-			break;
-		}
-		statements.push_back(std::move(stmt));
-	}
+        if (stmt == nullptr) {
+            std::cout << "no more valid statements, breaking out of block" << std::endl;
+            break;
+        }
+        statements.push_back(std::move(stmt));
+    }
 
-	consume(TokenType::RightBrace, "expect '}' after block"); // end block
-	std::cout << "exiting block" << std::endl;
-	return std::make_unique<BlockNode>(std::move(statements)); // return block node
+    consume(TokenType::RightBrace, "expect '}' after block"); // end block
+    std::cout << "exiting block" << std::endl;
+    return std::make_unique<BlockNode>(std::move(statements), true); // create scope for explicit blocks
 }
 
 std::unique_ptr<ASTNode> Parser::expressionStatement() {

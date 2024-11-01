@@ -7,7 +7,6 @@
 #include <sstream>
 #include <map>
 #include <vector>
-#include "ASTNode.h"
 
 enum class Type {
     VOID,
@@ -15,20 +14,13 @@ enum class Type {
     DOUBLE,
     BOOL,
     STRING,
-    ARRAY,
-    FUNCTION
-};
-
-struct Function {
-    std::unique_ptr<ASTNode> body;
-    std::vector<std::pair<std::string, Type>> parameters;
-    Type returnType;
+    ARRAY
 };
 
 // represents a value in the shell
 class Value {
 private:
-    std::variant<std::monostate, int, double, bool, std::string, std::vector<Value>, Function> data;
+    std::variant<std::monostate, int, double, bool, std::string, std::vector<Value>> data;
 
 public:
     Value() : data() {}
@@ -37,7 +29,6 @@ public:
     Value(bool v) : data(v) {}
     Value(const std::string& v) : data(v) {}
     Value(const std::vector<Value>& v) : data(v) {}
-    Value()
 
     Type getType() const;
     std::string toString() const;
@@ -50,5 +41,6 @@ public:
     }
 };
 
+std::string typeToString(Type type);
 
 #endif //SEASHELLS_VALUE_H
