@@ -19,11 +19,11 @@ private:
         if (name.empty()) {
             return false;
         }
-        // First character must be letter or underscore
+        // first character must be letter or underscore
         if (!std::isalpha(name[0]) && name[0] != '_') {
             return false;
         }
-        // Rest must be alphanumeric or underscore
+        // rest must be alphanumeric or underscore
         return std::all_of(name.begin() + 1, name.end(),
             [](char c) { return std::isalnum(c) || c == '_'; });
     }
@@ -113,7 +113,7 @@ public:
         if (it == functions.end()) {
             throw std::runtime_error("Function not found: " + name);
         }
-        return it->second.get();  // Return raw pointer to our owned copy
+        return it->second.get();  // return raw pointer to our owned copy
     }
 
     bool hasFunction(const std::string& name) const {

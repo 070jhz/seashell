@@ -27,6 +27,7 @@ public:
 
     const Environment& getEnvironment() const { return globalEnv; }
     bool isInMultiLine() const { return inputState.inMultiLine; }
+	void setMultiLine(bool multiLine) { inputState.inMultiLine = multiLine; }
     void clearBuffer() { inputState.reset(); }
     std::string getBuffer() { return inputState.buf; }
 

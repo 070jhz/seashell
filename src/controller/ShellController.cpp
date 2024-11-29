@@ -17,11 +17,11 @@ std::string ShellController::executeBuffer() {
         }
         Value result = interpreter.evaluate(*ast);
         inputState.reset();
-        return result.toString();  // Always return the string representation
+        return result.toString();  // always return the string representation
     }
     catch (const std::bad_alloc& e) {
         inputState.reset();
-        throw; // Rethrow the bad_alloc
+        throw; // rethrow the bad_alloc
     }
     catch (const std::exception& e) {
         inputState.reset();

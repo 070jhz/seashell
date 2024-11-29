@@ -1,7 +1,8 @@
 #include "ShellGUI.h"
+#include "GuiColors.h"
 #include <iostream>
 
-ShellGUI::ShellGUI() : window(sf::VideoMode(800, 600), "SeaShell", sf::Style::Default), scrollOffset(0) {
+ShellGUI::ShellGUI() : window(sf::VideoMode(1024, 768), "SeaShell", sf::Style::Default), scrollOffset(0) {
 	if (!font.loadFromFile("resources/FiraCode.ttf")) {
 		throw std::runtime_error("failed to load font");
 	}
@@ -9,13 +10,13 @@ ShellGUI::ShellGUI() : window(sf::VideoMode(800, 600), "SeaShell", sf::Style::De
 
 	inputText.setFont(font);
 	inputText.setCharacterSize(14);
-	inputText.setFillColor(sf::Color::White);
+	inputText.setFillColor(GUI::TEXT);
 
 	cursor.setSize(sf::Vector2f(2, 16));
-	cursor.setFillColor(sf::Color::White);
+	cursor.setFillColor(GUI::CURSOR);
 
 	statusBar.setSize(sf::Vector2f(800, 24));
-	statusBar.setFillColor(sf::Color(50, 50, 50));
+	statusBar.setFillColor(GUI::STATUS_BG);
 	statusBar.setPosition(0, window.getSize().y - 24);
 
 	lineHeight = 20.f;
@@ -29,7 +30,7 @@ void ShellGUI::update() {
 }
 
 void ShellGUI::render() {
-	window.clear(sf::Color::Black);
+	window.clear(GUI::BACKGROUND);
 
 	drawOutput();
 	drawInput();
@@ -41,7 +42,6 @@ void ShellGUI::render() {
 
 void ShellGUI::handleEvent(const sf::Event& event) {
     if (event.type == sf::Event::TextEntered) {
-        // only handle actual text input (not control characters)
         if (event.text.unicode >= 32 && event.text.unicode < 128) {
             handleTextInput(event.text.unicode);
         }
@@ -50,9 +50,17 @@ void ShellGUI::handleEvent(const sf::Event& event) {
         handleSpecialKeys(event.key);
     }
     else if (event.type == sf::Event::MouseWheelScrolled) {
-        if (event.mouseWheelScroll.delta > 0) {
+        // calculate visible lines and max scroll offset
+        float availableHeight = window.getSize().y - lineHeight - 24;
+        int visibleLines = static_cast<int>(availableHeight / lineHeight);
+        int maxScrollOffset = std::max(0, static_cast<int>(outputHistory.size()) - visibleLines);
+
+        // when scrolling up (delta > 0), only scroll if we have scroll range left
+        if (event.mouseWheelScroll.delta > 0 && scrollOffset > 0) {
             scrollDown();
-        } else {
+        }
+        // when scrolling down (delta < 0), only scroll if we haven't reached bottom
+        else if (event.mouseWheelScroll.delta < 0 && scrollOffset < maxScrollOffset) {
             scrollUp();
         }
     }
@@ -70,7 +78,7 @@ void ShellGUI::addOutputLine(const std::string& line) {
     int visibleLines = static_cast<int>(availableHeight / lineHeight);
     int maxScrollOffset = std::max(0, static_cast<int>(outputHistory.size()) - visibleLines);
     
-    // If scrollOffset is near bottom (within 3 lines), stick to bottom
+    // if scrollOffset is near bottom (within 3 lines), stick to bottom
     if (scrollOffset >= maxScrollOffset - 3) {
         scrollOffset = maxScrollOffset;
     }
@@ -107,19 +115,14 @@ void ShellGUI::drawOutput() {
     float availableHeight = window.getSize().y - lineHeight - 24;
     int visibleLines = static_cast<int>(availableHeight / lineHeight);
     
-    // If we have more lines than can fit, adjust scroll offset to show latest content
-    if (scrollOffset == 0 && outputHistory.size() > visibleLines) {
-        scrollOffset = outputHistory.size() - visibleLines;
-    }
-    
-    // Calculate start index based on scroll offset
+    // calculate start index based on scroll offset
     int startIndex = scrollOffset;
     int endIndex = std::min(startIndex + visibleLines, static_cast<int>(outputHistory.size()));
     
-    // Draw from top to bottom
+    // draw from top to bottom
     for (int i = startIndex; i < endIndex; ++i) {
         sf::Text text(outputHistory[i], font, 14);
-        text.setFillColor(sf::Color::White);
+        text.setFillColor(GUI::TEXT);
         text.setPosition(0, yPos);
         window.draw(text);
         yPos += lineHeight;
@@ -128,7 +131,7 @@ void ShellGUI::drawOutput() {
 
 void ShellGUI::drawInput() {
 	sf::Text promptText(prompt + currentInput, font, 14);
-	promptText.setFillColor(sf::Color::White);
+	promptText.setFillColor(GUI::TEXT);
 	promptText.setPosition(0, window.getSize().y - lineHeight - 24);
 	window.draw(promptText);
 	window.draw(cursor);
@@ -173,7 +176,7 @@ void ShellGUI::scrollUp() {
     int visibleLines = static_cast<int>(availableHeight / lineHeight);
     int maxScrollOffset = std::max(0, static_cast<int>(outputHistory.size()) - visibleLines);
     
-    // Only increment scroll offset if we haven't reached the max
+    // only increment scroll offset if we haven't reached the max
     if (scrollOffset < maxScrollOffset) {
         scrollOffset++;
     }

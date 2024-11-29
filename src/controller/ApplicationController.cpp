@@ -26,10 +26,13 @@ void ApplicationController::processEvents() {
                 if (!input.empty()) {
                     if (event.key.shift) {
                         shell.appendInput(input);
+						shell.setMultiLine(true);
+						gui.addOutputLine(gui.getPrompt() + input);
                         gui.clearInput();
                     }
                     else {
                         handleInput(input);
+						shell.setMultiLine(false);
                         gui.clearInput();
                     }
                 }
@@ -46,11 +49,11 @@ void ApplicationController::handleInput(const std::string& input) {
 
     shell.appendInput(input);
 
-    // Show the final line that triggered evaluation
+    // show the final line that triggered evaluation
     gui.addOutputLine(gui.getPrompt() + input);
 
     try {
-        // Evaluate and show result
+        // evaluate and show result
         std::string result = shell.executeBuffer();
         if (!result.empty()) {
             gui.addOutputLine("=> " + result);

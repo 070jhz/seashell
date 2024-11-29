@@ -20,7 +20,6 @@ public:
     explicit Interpreter(Environment& env) : env(env) {}
 
     Value evaluate(ASTNode& node) {
-        std::cout << node.toString() << std::endl;
         lastResult = node.accept(*this);
         return lastResult;
     }

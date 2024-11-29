@@ -193,7 +193,6 @@ Value Interpreter::visit(AssignmentNode& node) {
         }
         env.declareVariable(varName, declType, exprVal);
         if (declType == Type::ARRAY) {
-            std::cout << "tis array" << std::endl;
         }
     }
     else { // assignment to existing variable
@@ -201,7 +200,6 @@ Value Interpreter::visit(AssignmentNode& node) {
             throw std::runtime_error("undefined variable: " + varName);
         }
         Variable& existingVar = env.getVariable(varName);
-		std::cout << "if array assignment : " << node.checkIfArrayAssignment() << std::endl;
         if (node.checkIfArrayAssignment()) {
             try {
 				int index = evaluate(*node.getIndex()).get<int>();
@@ -209,7 +207,6 @@ Value Interpreter::visit(AssignmentNode& node) {
 					throw std::runtime_error("array index out of bounds: " + std::to_string(index));
                 }
                 Value& elem = existingVar.value.atIndex(index);
-                std::cout << "here is elem : " << elem.toString() << std::endl;
 
                 if (!node.isTypeCompatible(exprVal.getType(), elem.getType())) {
                     throw std::runtime_error("type mismatch in array assignment. cannot assign"
@@ -249,7 +246,7 @@ Value Interpreter::visit(BlockNode& node) {
         if (node.shouldCreateScope()) {
             env.popScope();
         }
-        throw; // Re-throw return value
+        throw; // re-throw return value
     }
     catch (...) {
         if (node.shouldCreateScope()) {
@@ -374,17 +371,10 @@ Value Interpreter::visit(FunctionNode& node) {
 }
 
 Value Interpreter::visit(CallNode& node) {
-    std::cout << "1. Getting function name" << std::endl;
     const std::string& funcName = node.getFuncName();
-
-    std::cout << "2. Looking up function: " << funcName << std::endl;
     FunctionNode* funcDef = env.getFunction(funcName);
-
-    std::cout << "3. Getting parameters" << std::endl;
     const auto& params = funcDef->getParameters();
-    std::cout << "4. Getting arguments" << std::endl;
     const auto& argsNodes = node.getArguments();
-    std::cout << "argsize : " << argsNodes.size() << std::endl;
 
 
     std::vector<Value> evalArgs;
@@ -399,17 +389,14 @@ Value Interpreter::visit(CallNode& node) {
 
         env.pushScope();
 
-        // Bind parameters in new scope
+        // bind parameters in new scope
         if (!params.empty()) {
             for (size_t i = 0; i < params.size(); ++i) {
-                std::cout << "params size: " << params.size() << std::endl;
-                std::cout << "evalArgs size: " << evalArgs.size() << std::endl;
-                std::cout << "current i: " << i << std::endl;
                 env.declareVariable(params[i].first, params[i].second, evalArgs[i]);
             }
         }
 
-        // Execute function body
+        // execute function body
         Value result = evaluate(*funcDef->getBody());
         env.popScope();
         return result;

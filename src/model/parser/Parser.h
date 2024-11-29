@@ -73,14 +73,9 @@ private:
 	}
 
 	Token consume(TokenType type, const std::string& message) {
-		std::cout << "attempting to consume token type: " << static_cast<int>(type) << std::endl;
-		std::cout << "current token type: " << static_cast<int>(peek().type) << std::endl;
 		if (check(type)) {
 			return advance();
 		}
-
-		std::cout << "failed to consume token. expected " << static_cast<int>(type)
-			<< " but found " << static_cast<int>(peek().type) << std::endl;
 		throw std::runtime_error(message);
 	}
 

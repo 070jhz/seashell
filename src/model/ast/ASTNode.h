@@ -56,7 +56,7 @@ public:
     virtual Value accept(ASTVisitor& visitor) = 0;
     virtual std::string toString() = 0;
     virtual NodeType getNodeType() const = 0;
-    virtual ~ASTNode() = default;
+    //virtual ~ASTNode() = default;
     virtual std::unique_ptr<ASTNode> clone() const = 0;
 };
 
@@ -305,7 +305,7 @@ public:
         : variableName(varName), expression(std::move(expr)), declaredType(Type::VOID), index(nullptr) {};
 
 	// constructor for array element assignment
-    AssignmentNode(std::string arrayName, std::unique_ptr<ASTNode> index, std::unique_ptr<ASTNode> expr)
+    AssignmentNode(std::string arrayName, std::unique_ptr<ASTNode> expr, std::unique_ptr<ASTNode> index)
         : variableName(arrayName), index(std::move(index)), expression(std::move(expr)), declaredType(Type::VOID) {};
 
     AssignmentNode(const AssignmentNode& other)
@@ -550,7 +550,6 @@ public:
         return NodeType::Function;
     }
 
-    // Add virtual clone method to ASTNode base class
     std::unique_ptr<ASTNode> clone() const override {
         return std::make_unique<FunctionNode>(*this);
     }
